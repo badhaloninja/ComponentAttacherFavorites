@@ -14,7 +14,7 @@ namespace ComponentAttacherFavorites
     {
         public override string Name => "ComponentAttacherFavorites";
         public override string Author => "badhaloninja";
-        public override string Version => "1.0.0";
+        public override string Version => "1.0.1";
         public override string Link => "https://github.com/badhaloninja/ComponentAttacherFavorites";
 
         [AutoRegisterConfigKey]
@@ -23,10 +23,20 @@ namespace ComponentAttacherFavorites
         private static Dictionary<Type, string> Favorites;
 
         internal static ModConfiguration config;
+
+        private static MethodInfo openCategoryPressed;
+        private static MethodInfo cancelPressed;
+        private static MethodInfo openGenericTypesPressed;
+        private static MethodInfo addComponentPressed;
         public override void OnEngineInit()
         {
             config = GetConfiguration();
             Favorites = config.GetValue(FavoriteComponents);
+
+            cancelPressed = AccessTools.Method(typeof(ComponentAttacher), "OnCancelPressed");
+            addComponentPressed = AccessTools.Method(typeof(ComponentAttacher), "OnAddComponentPressed");
+            openCategoryPressed = AccessTools.Method(typeof(ComponentAttacher), "OnOpenCategoryPressed");
+            openGenericTypesPressed = AccessTools.Method(typeof(ComponentAttacher), "OpenGenericTypesPressed");
 
             Harmony harmony = new Harmony("me.badhaloninja.ComponentAttacherFavorites");
             harmony.PatchAll();
@@ -44,8 +54,8 @@ namespace ComponentAttacherFavorites
 
                 Favorites = config.GetValue(FavoriteComponents);
 
-                var onOpenCategoryPressed = (ButtonEventHandler<string>)AccessTools.Method(__instance.GetType(), "OnOpenCategoryPressed").CreateDelegate(typeof(ButtonEventHandler<string>), __instance);
-                var onCancelPressed = (ButtonEventHandler)AccessTools.Method(__instance.GetType(), "OnCancelPressed").CreateDelegate(typeof(ButtonEventHandler), __instance);
+                var onOpenCategoryPressed = (ButtonEventHandler<string>)openCategoryPressed.CreateDelegate(typeof(ButtonEventHandler<string>), __instance);
+                var onCancelPressed = (ButtonEventHandler)cancelPressed.CreateDelegate(typeof(ButtonEventHandler), __instance);
 
 
                 ____uiRoot.Target.DestroyChildren();
@@ -91,20 +101,21 @@ namespace ComponentAttacherFavorites
                     }
                 }
 
-
+                var onOpenGenericTypesPressed = (ButtonEventHandler<string>)openGenericTypesPressed.CreateDelegate(typeof(ButtonEventHandler<string>), __instance);
+                var onAddComponentPressed = (ButtonEventHandler<string>)addComponentPressed.CreateDelegate(typeof(ButtonEventHandler<string>), __instance);
 
                 if (path != "/Favorites")
                 {
                     foreach (Type type in categoryNode.Elements)
                     {
-                        componentButton(__instance, type, uibuilder, path);
+                        componentButton(__instance, type, uibuilder, path, onOpenGenericTypesPressed, onAddComponentPressed);
                     }
                 }
                 else
                 {
                     foreach (var fav in Favorites)
                     {
-                        componentButton(__instance, fav.Key, uibuilder, fav.Value);
+                        componentButton(__instance, fav.Key, uibuilder, fav.Value, onOpenGenericTypesPressed, onAddComponentPressed);
                     }
                 }
 
@@ -116,16 +127,13 @@ namespace ComponentAttacherFavorites
                 return false;
             }
 
-            static void componentButton(ComponentAttacher instance, Type type, UIBuilder uibuilder, string path)
+            static void componentButton(ComponentAttacher instance, Type type, UIBuilder uibuilder, string path, ButtonEventHandler<string> openGenericTypesPressed, ButtonEventHandler<string> onAddComponentPressed)
             {
-                var openGenericTypesPressed = (ButtonEventHandler<string>)AccessTools.Method(instance.GetType(), "OpenGenericTypesPressed").CreateDelegate(typeof(ButtonEventHandler<string>), instance);
-                var onAddComponentPressed = (ButtonEventHandler<string>)AccessTools.Method(instance.GetType(), "OnAddComponentPressed").CreateDelegate(typeof(ButtonEventHandler<string>), instance);
-
                 LocaleString localeString = type.GetNiceName("<", ">");
                 color color;
 
                 var horizontal = uibuilder.HorizontalLayout(4);
-
+                
 
                 uibuilder.Style.MinWidth = 32;
                 uibuilder.Style.FlexibleWidth = 100;
